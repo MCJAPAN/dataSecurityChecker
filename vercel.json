@@ -1,0 +1,6 @@
+{
+  "functions": {
+    "api/geo.js": { "runtime": "edge" }
+  },
+  "rewrites":[{"source":"/","destination":"/public/index.html"}]
+}

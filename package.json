@@ -1,0 +1,6 @@
+{
+  "name":"data-security-checker",
+  "version":"1.0.0",
+  "type":"module",
+  "dependencies":{"@vercel/edge":"^1.0.0"}
+}
