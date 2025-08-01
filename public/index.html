@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ja"><head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>データセキュリティチェッカー（初心者向け詳解付き）</title>
+  <style>
+    body{background:#0a0a0a;color:#eee;font-family:sans-serif;text-align:center;padding:2rem;}
+    .grid{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));margin-top:2rem;}
+    .card{background:#1a1a1a;border-radius:8px;padding:1rem;box-shadow:0 0 8px rgba(0,255,255,0.3);cursor:pointer;}
+    .card:hover{box-shadow:0 0 16px rgba(0,255,255,0.6);}
+    #modal{display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;}
+    #modal .box{background:#1a1a1a;color:#fff;border-radius:8px;padding:1rem;max-width:400px;}
+    #modal button{margin-top:1rem;padding:0.5rem 1rem;background:#0ff;color:#000;border:none;border-radius:4px;cursor:pointer;}
+    h1{color:#0ff;text-shadow:0 0 8px #0ff;}
+  </style>
+</head><body>
+<h1>データセキュリティチェッカー（初心者向け）</h1>
+<div id="grid" class="grid"></div>
+<div id="modal"><div class="box">
+  <h3 id="modal-title"></h3><p id="modal-text"></p>
+  <button onclick="closeModal()">閉じる</button>
+</div></div>
+<script>
+const items = [
+  {key:'URL', explanation:'いまアクセスしているページのアドレスです。'},
+  {key:'REMOTE_ADDR', explanation:'インターネットで使われている、あなたのIPアドレス（住所みたいなもの）です。'},
+  {key:'Country / City', explanation:'IP からわかった国と都市です。'},
+  {key:'Language', explanation:'ブラウザの言語設定で、ja-JP なら日本語を優先するという意味です。'},
+  {key:'24bit Color Depth', explanation:'あなたの画面色の多さ（例：24bit＝約1677万色です）。'},
+  {key:'Is 24bit Color?', explanation:'「はい」ならとてもきれい、「いいえ」なら例えば16bit（約6万5000色）などです。'},
+  {key:'Screen Resolution', explanation:'ディスプレイ全体の解像度（縦×横）です。'},
+  {key:'Browser Size', explanation:'ブラウザウィンドウの表示部分サイズです。'},
+  {key:'User-Agent', explanation:'ブラウザやOSの情報が入っている文字列です。'},
+  {key:'Browser Name', explanation:'User-Agent文字列から推測した「Chrome」「Firefox」などのブラウザ名です。'},
+  {key:'OS Name', explanation:'同じく「Windows」「macOS」「Android」などのOS名を推測しています。'},
+  {key:'Cookies Enabled', explanation:'Cookie（記憶する仕組み）が使えるかどうかです。'},
+  {key:'Java Enabled', explanation:'Javaアプレットが動くか。最近の環境では「非対応」または「いいえ」です。'},
+  {key:'JavaScript Enabled', explanation:'JavaScript が動いているので「はい」です。'},
+  {key:'Fingerprint', explanation:'FingerprintJSで作られた識別IDです。「N/A」なら取得できなかった（広告ブロックなどの影響）です。'},
+  {key:'HTTP_ACCEPT', explanation:'ブラウザが受け入れられるデータの種類（MIMEタイプ）情報から一部取っています。'},
+  {key:'HTTP_ACCEPT_ENCODING', explanation:'ブラウザが対応するデータ圧縮方式（例：gzip）を表示します。'},
+  {key:'HTTP_ACCEPT_LANGUAGE', explanation:'ブラウザの言語優先設定をHTTPヘッダーで送っている情報です。'},
+  {key:'HTTP_REFERER', explanation:'このページに来る前に見ていたページのURLです。'}
+];
+
+async function init(){
+  const geo = await fetch('/api/geo').then(r=>r.json()).catch(()=>({}));
+  const ua = navigator.userAgent;
+  const info = {
+    URL: location.href,
+    REMOTE_ADDR: geo.ip || 'Unknown',
+    'Country / City': `${geo.country||'-'} / ${geo.city||'-'}`,
+    Language: navigator.language || '不明',
+    colorDepthBit: screen.colorDepth,
+    '24bit Color Depth': screen.colorDepth+' bit',
+    'Is 24bit Color?': screen.colorDepth===24 ? 'はい' : 'いいえ（例: 約'+(Math.pow(2,screen.colorDepth)+'色')+'）',
+    'Screen Resolution': screen.width+'×'+screen.height,
+    'Browser Size': window.innerWidth+'×'+window.innerHeight,
+    'User-Agent': ua,
+    'Browser Name': ua.includes('Firefox') ? 'Firefox' : ua.includes('Edg') ? 'Edge' :
+                    ua.includes('Chrome') ? 'Chrome' : ua.includes('Safari') ? 'Safari':'不明',
+    'OS Name': ua.includes('Windows')?'Windows':ua.includes('Mac OS')?'macOS':
+               ua.includes('Android')?'Android':ua.includes('Linux')?'Linux':'不明',
+    'Cookies Enabled': navigator.cookieEnabled?'はい':'いいえ',
+    'Java Enabled': navigator.javaEnabled? (navigator.javaEnabled()?'はい':'いいえ') : '非対応',
+    'JavaScript Enabled': 'はい',
+    Fingerprint: '読み込み中…',
+    HTTP_ACCEPT: navigator.mimeTypes && navigator.mimeTypes.length ? Array.from(navigator.mimeTypes).map(m=>m.type).join(', ') : '非対応',
+    HTTP_ACCEPT_ENCODING: navigator.userAgent.includes('gzip')?'gzip':'不明',
+    HTTP_ACCEPT_LANGUAGE: navigator.language || '不明',
+    HTTP_REFERER: document.referrer || '直接アクセス'
+  };
+  try {
+    const fp = await (await import('https://openfpcdn.io/fingerprintjs/v4')).load();
+    info.Fingerprint = (await fp.get()).visitorId;
+  } catch { info.Fingerprint = 'N/A'; }
+  
+  items.forEach(i=>{
+    const d=document.createElement('div');
+    d.className='card';
+    d.innerHTML=`<strong>${i.key}</strong><br>${info[i.key]||'不明'}`;
+    d.onclick=()=>openModal(i.key,i.explanation);
+    document.getElementById('grid').appendChild(d);
+  });
+}
+
+function openModal(k,e){
+  document.getElementById('modal-title').innerText=k;
+  document.getElementById('modal-text').innerText=e;
+  document.getElementById('modal').style.display='flex';
+}
+function closeModal(){document.getElementById('modal').style.display='none';}
+
+window.onload=init;
+</script>
+</body></html>
